@@ -47,6 +47,39 @@ async function getAudioDurationSeconds(audioPath) {
   return duration;
 }
 
+/**
+ * Get clip info: duration (seconds) and hasAudio (boolean).
+ */
+async function getClipInfo(videoPath) {
+  const durationArgs = [
+    "-v", "error",
+    "-show_entries", "format=duration",
+    "-of", "default=noprint_wrappers=1:nokey=1",
+    videoPath,
+  ];
+  const { stdout: durationOut } = await runCmd("ffprobe", durationArgs, { logPrefix: "ffprobe" });
+  const duration = Number(String(durationOut).trim());
+  if (!Number.isFinite(duration) || duration <= 0) {
+    throw new Error(`Could not get duration for ${videoPath}`);
+  }
+
+  const streamArgs = [
+    "-v", "error",
+    "-select_streams", "a",
+    "-show_entries", "stream=codec_type",
+    "-of", "csv=p=0",
+    videoPath,
+  ];
+  let hasAudio = false;
+  try {
+    const { stdout: streamOut } = await runCmd("ffprobe", streamArgs, { logPrefix: "ffprobe" });
+    hasAudio = String(streamOut).trim().length > 0;
+  } catch (_) {
+    // no audio stream
+  }
+  return { duration, hasAudio };
+}
+
 function escapeForFfmpegFilterValue(value) {
   // We wrap in single quotes in the filter, so escape single quotes and backslashes.
   return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -113,9 +146,50 @@ async function burnCaptionsIntoVideo({ videoPath, srtPath, outputPath, forceStyl
   await runCmd("ffmpeg", args, { logPrefix: "ffmpeg" });
 }
 
+/** Normalize one clip to target size (scale + pad). Adds silent audio if no audio. */
+async function normalizeClip(inputPath, outputPath, { width, height }) {
+  const w = Number(width) || 1080;
+  const h = Number(height) || 1920;
+  const { duration, hasAudio } = await getClipInfo(inputPath);
+  const vf = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2`;
+  const args = ["-y", "-i", inputPath];
+  if (!hasAudio) {
+    args.push("-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100", "-t", String(duration), "-map", "0:v", "-map", "1:a", "-shortest");
+  }
+  args.push("-vf", vf, "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-c:a", "aac", "-ar", "44100", "-movflags", "+faststart", outputPath);
+  await runCmd("ffmpeg", args, { logPrefix: "ffmpeg" });
+}
+
+/**
+ * Concat pre-normalized MP4 files (same codec) into one.
+ * @param {string[]} normalizedPaths - Paths in order
+ * @param {string} outputPath - Output file
+ */
+async function mergeWithConcat(normalizedPaths, outputPath) {
+  const listPath = outputPath.replace(/\.[^.]+$/, "") + "-list.txt";
+  const lines = normalizedPaths.map((p) => {
+    const normalized = p.replace(/\\/g, "/");
+    const escaped = normalized.replace(/'/g, "\\'");
+    return `file '${escaped}'`;
+  });
+  const fs = require("fs");
+  fs.writeFileSync(listPath, lines.join("\n"), "utf8");
+  try {
+    const args = ["-y", "-f", "concat", "-safe", "0", "-i", listPath, "-c", "copy", "-movflags", "+faststart", outputPath];
+    await runCmd("ffmpeg", args, { logPrefix: "ffmpeg" });
+  } finally {
+    try {
+      if (fs.existsSync(listPath)) fs.unlinkSync(listPath);
+    } catch (_) {}
+  }
+}
+
 module.exports = {
   getAudioDurationSeconds,
   extractAudioFromVideo,
   burnCaptionsIntoVideo,
+  getClipInfo,
+  normalizeClip,
+  mergeWithConcat,
 };
 

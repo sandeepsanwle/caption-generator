@@ -286,3 +286,164 @@ select {
   word-break: break-word;
 }
 
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0;
+  justify-content: center;
+  padding: 16px 16px 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.tabs__btn {
+  padding: 12px 20px;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 12px 12px 0 0;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabs__btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tabs__btn--active {
+  background: var(--card);
+  color: var(--text);
+  margin-bottom: -1px;
+  padding-bottom: 13px;
+}
+
+/* Merge page */
+.mergeFileInput {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.mergeList {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mergeList__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  cursor: grab;
+}
+
+.mergeList__num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--btn);
+  color: #0b1020;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.mergeList__item:active {
+  cursor: grabbing;
+}
+
+.mergeList__item--dragging {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.mergeList__handle {
+  color: var(--muted);
+  font-size: 14px;
+  cursor: grab;
+  user-select: none;
+}
+
+.mergeList__name {
+  flex: 1;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mergeList__remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 77, 79, 0.2);
+  color: var(--danger);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.mergeList__remove:hover {
+  background: rgba(255, 77, 79, 0.35);
+}
+
+/* Merge result + preview */
+.mergeResult {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mergeResult__alert {
+  margin: 0;
+}
+
+.mergePreview {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.mergePreview__label {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.mergePreview__video {
+  width: 100%;
+  max-height: 360px;
+  border-radius: 8px;
+  background: #000;
+}
+
+.mergeOrientationItem {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.mergeOrientationItem__label {
+  font-weight: 600;
+}
+
+.mergeOrientationItem__hint {
+  margin-top: 4px;
+  margin-left: 0;
+}
+

@@ -8,6 +8,7 @@ const mongoose = require("mongoose");
 require("dotenv").config();
 
 const jobsRoutes = require("./routes/jobs");
+const mergeRoutes = require("./routes/merge");
 const { initJobStore } = require("./utils/jobStore");
 const { checkServiceHealth } = require("./utils/transcriptionServiceClient");
 
@@ -28,6 +29,7 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.use("/api", jobsRoutes);
+app.use("/api", mergeRoutes);
 
 // Serve built React app if it exists (production-friendly).
 const clientDist = path.join(__dirname, "..", "..", "client", "dist");
