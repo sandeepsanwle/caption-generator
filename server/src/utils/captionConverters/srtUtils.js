@@ -7,6 +7,19 @@ function pad3(n) {
 }
 
 /**
+ * Parse SRT timestamp (HH:MM:SS,mmm) to seconds.
+ */
+function parseSrtTimestamp(ts) {
+  const m = String(ts || "").trim().match(/^(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})$/);
+  if (!m) return 0;
+  const h = parseInt(m[1], 10) || 0;
+  const min = parseInt(m[2], 10) || 0;
+  const s = parseInt(m[3], 10) || 0;
+  const ms = parseInt(m[4].padEnd(3, "0").slice(0, 3), 10) || 0;
+  return h * 3600 + min * 60 + s + ms / 1000;
+}
+
+/**
  * Convert seconds to SRT timestamp format: HH:MM:SS,mmm
  */
 function formatSrtTimestamp(seconds) {
@@ -34,5 +47,5 @@ function buildSrt(cues) {
     .join("\n");
 }
 
-module.exports = { formatSrtTimestamp, buildSrt };
+module.exports = { formatSrtTimestamp, parseSrtTimestamp, buildSrt };
 

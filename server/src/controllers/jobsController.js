@@ -11,6 +11,7 @@ const { buildForceStyle } = require("../utils/subtitleStyle");
 
 const { vttToSrt } = require("../utils/captionConverters/vttToSrt");
 const { jsonToSrt } = require("../utils/captionConverters/jsonToSrt");
+const { srtWordWrap } = require("../utils/captionConverters/srtWordWrap");
 
 function assertFileExists(p, label) {
   if (!p || !fs.existsSync(p)) {
@@ -120,6 +121,13 @@ async function processJob(req, res) {
     }
 
     assertFileExists(generatedSrtPath, "Captions SRT");
+
+    // 1b) Word-wrap SRT: max 3-4 words per line for cleaner display
+    const wordsPerLine = Math.max(0, Math.min(10, Number(req.body.wordsPerLine) || 4));
+    if (wordsPerLine > 0) {
+      const raw = fs.readFileSync(generatedSrtPath, "utf8");
+      fs.writeFileSync(generatedSrtPath, srtWordWrap(raw, wordsPerLine), "utf8");
+    }
 
     // 2) Burn captions into ORIGINAL video (no audio replacement)
     await burnCaptionsIntoVideo({

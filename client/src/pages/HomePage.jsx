@@ -34,6 +34,7 @@ export default function HomePage() {
   const [fontSize, setFontSize] = useState("28");
   const [color, setColor] = useState("#ffffff");
   const [outline, setOutline] = useState("2");
+  const [wordsPerLine, setWordsPerLine] = useState("4");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -61,6 +62,7 @@ export default function HomePage() {
     fd.append("fontSize", String(fontSize));
     fd.append("color", String(color));
     fd.append("outline", String(outline));
+    fd.append("wordsPerLine", String(wordsPerLine));
 
     if (captionSource !== "auto") {
       fd.append("captionsFile", captionsFile);
@@ -116,7 +118,7 @@ export default function HomePage() {
 
           {captionSource === "auto" ? (
             <>
-              <Field label="Language" hint="For Whisper: auto-detect, English, or Hindi (and others).">
+              <Field label="Language" hint={language === "hi" ? "Set to Hindi for better accuracy. Auto-detect can misidentify Hindi." : "For Whisper: auto-detect, English, or Hindi (and others)."}>
                 <select value={language} onChange={(e) => setLanguage(e.target.value)}>
                   {LANGUAGES.map((l) => (
                     <option key={l.id} value={l.id}>
@@ -125,7 +127,7 @@ export default function HomePage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Whisper model" hint="small = fast & good; medium/large = slower, more accurate.">
+              <Field label="Whisper model" hint={language === "hi" ? "For Hindi: use medium or large for better accuracy. Small can produce grammatical errors." : "small = fast & good; medium/large = slower, more accurate."}>
                 <select value={whisperModel} onChange={(e) => setWhisperModel(e.target.value)}>
                   <option value="tiny">Tiny</option>
                   <option value="base">Base</option>
@@ -145,6 +147,15 @@ export default function HomePage() {
             </Field>
           )}
 
+          <Field label="Words at a time" hint="Show only 3–4 words per caption at a time (default: 4).">
+            <input
+              type="number"
+              min="1"
+              max="10"
+              value={wordsPerLine}
+              onChange={(e) => setWordsPerLine(e.target.value)}
+            />
+          </Field>
           <Field label="Subtitle styling" hint="Font size, color, outline; bottom-center alignment.">
             <StyleOptions
               preset={preset}
