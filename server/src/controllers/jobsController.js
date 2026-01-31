@@ -12,6 +12,7 @@ const { buildForceStyle } = require("../utils/subtitleStyle");
 const { vttToSrt } = require("../utils/captionConverters/vttToSrt");
 const { jsonToSrt } = require("../utils/captionConverters/jsonToSrt");
 const { srtWordWrap } = require("../utils/captionConverters/srtWordWrap");
+const { srtDevanagariToHinglish } = require("../utils/captionConverters/devanagariToHinglish");
 
 function assertFileExists(p, label) {
   if (!p || !fs.existsSync(p)) {
@@ -42,6 +43,8 @@ async function processJob(req, res) {
   const jobId = req.jobId;
   const captionSource = String(req.body.captionSource || "").toLowerCase();
   const language = String(req.body.language || "auto").toLowerCase().trim() || "auto";
+  const outputHinglish = language === "hi-hinglish";
+  const whisperLanguage = outputHinglish ? "hi" : language;
   const whisperModel = String(req.body.whisperModel || "small").toLowerCase();
 
   const videoFile = req.files?.video?.[0];
@@ -97,7 +100,7 @@ async function processJob(req, res) {
 
       await runWhisper(extractedAudioPath, {
         model: whisperModel,
-        language,
+        language: whisperLanguage,
         outputDir: jobUploadDir,
       });
 
@@ -122,7 +125,13 @@ async function processJob(req, res) {
 
     assertFileExists(generatedSrtPath, "Captions SRT");
 
-    // 1b) Word-wrap SRT: max 3-4 words per line for cleaner display
+    // 1b) Convert Hindi (Devanagari) to Hinglish (Roman script) when requested
+    if (outputHinglish) {
+      const raw = fs.readFileSync(generatedSrtPath, "utf8");
+      fs.writeFileSync(generatedSrtPath, srtDevanagariToHinglish(raw), "utf8");
+    }
+
+    // 1c) Word-wrap SRT: max 3-4 words per cue for cleaner display
     const wordsPerLine = Math.max(0, Math.min(10, Number(req.body.wordsPerLine) || 4));
     if (wordsPerLine > 0) {
       const raw = fs.readFileSync(generatedSrtPath, "utf8");

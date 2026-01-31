@@ -13,7 +13,8 @@ const CAPTION_SOURCES = [
 const LANGUAGES = [
   { id: "auto", label: "Auto-detect" },
   { id: "en", label: "English" },
-  { id: "hi", label: "Hindi" },
+  { id: "hi", label: "Hindi (Devanagari)" },
+  { id: "hi-hinglish", label: "Hinglish (Roman script)" },
 ];
 
 function captionsAcceptFor(source) {
@@ -118,7 +119,7 @@ export default function HomePage() {
 
           {captionSource === "auto" ? (
             <>
-              <Field label="Language" hint={language === "hi" ? "Set to Hindi for better accuracy. Auto-detect can misidentify Hindi." : "For Whisper: auto-detect, English, or Hindi (and others)."}>
+              <Field label="Language" hint={language === "hi" || language === "hi-hinglish" ? "Set to Hindi or Hinglish for better accuracy. Hinglish = Hindi in Roman script (e.g. 'kya hai')." : "For Whisper: auto-detect, English, Hindi, or Hinglish."}>
                 <select value={language} onChange={(e) => setLanguage(e.target.value)}>
                   {LANGUAGES.map((l) => (
                     <option key={l.id} value={l.id}>
@@ -127,7 +128,7 @@ export default function HomePage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Whisper model" hint={language === "hi" ? "For Hindi: use medium or large for better accuracy. Small can produce grammatical errors." : "small = fast & good; medium/large = slower, more accurate."}>
+              <Field label="Whisper model" hint={language === "hi" || language === "hi-hinglish" ? "For Hindi/Hinglish: use medium or large for better accuracy. Small can produce grammatical errors." : "small = fast & good; medium/large = slower, more accurate."}>
                 <select value={whisperModel} onChange={(e) => setWhisperModel(e.target.value)}>
                   <option value="tiny">Tiny</option>
                   <option value="base">Base</option>
