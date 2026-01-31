@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Field from "../components/Field.jsx";
 import StyleOptions from "../components/StyleOptions.jsx";
-import { processVideo } from "../services/api.js";
+import { processVideo, getJobStatus } from "../services/api.js";
 
 const CAPTION_SOURCES = [
   { id: "auto", label: "Auto-generate (Whisper)" },
@@ -13,8 +13,7 @@ const CAPTION_SOURCES = [
 const LANGUAGES = [
   { id: "auto", label: "Auto-detect" },
   { id: "en", label: "English" },
-  { id: "hi", label: "Hindi (Devanagari)" },
-  { id: "hi-hinglish", label: "Hinglish (Roman script)" },
+  { id: "hi", label: "Hindi" },
 ];
 
 function captionsAcceptFor(source) {
@@ -40,17 +39,37 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const [logs, setLogs] = useState([]);
+  const [showLogModal, setShowLogModal] = useState(false);
+  const pollRef = useRef(null);
 
   const accept = useMemo(() => captionsAcceptFor(captionSource), [captionSource]);
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => stopPolling();
+  }, [stopPolling]);
 
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
     setResult(null);
+    setLogs([]);
+    setShowLogModal(true);
 
-    if (!videoFile) return setError("Please choose a video (.mp4).");
+    if (!videoFile) {
+      setShowLogModal(false);
+      return setError("Please choose a video (.mp4).");
+    }
 
     if (captionSource !== "auto" && !captionsFile) {
+      setShowLogModal(false);
       return setError("Please choose a captions file.");
     }
 
@@ -72,11 +91,36 @@ export default function HomePage() {
     try {
       setLoading(true);
       const out = await processVideo(fd);
-      setResult(out);
+      const jobId = out?.jobId;
+      if (!jobId) throw new Error("No job ID returned");
+
+      setLogs([{ ts: new Date().toISOString(), message: "Processing your video. This may take a few minutes." }]);
+
+      const poll = async () => {
+        const job = await getJobStatus(jobId);
+        if (!job) return;
+
+        if (job.status === "completed") {
+          stopPolling();
+          setLogs((prev) =>
+            prev.some((e) => e.message.includes("Done")) ? prev : [...prev, { ts: new Date().toISOString(), message: "Done! Your video is ready." }]
+          );
+          setLoading(false);
+          setResult({ jobId, downloadUrl: `/api/jobs/${jobId}/download` });
+        } else if (job.status === "failed") {
+          stopPolling();
+          setLogs((prev) => [...prev, { ts: new Date().toISOString(), message: `Error: ${job.error || "Job failed"}` }]);
+          setLoading(false);
+          setError(job.error || "Job failed");
+        }
+      };
+
+      await poll();
+      pollRef.current = setInterval(poll, 1500);
     } catch (err) {
-      setError(err.message || "Failed to generate video.");
-    } finally {
       setLoading(false);
+      setShowLogModal(false);
+      setError(err.message || "Failed to generate video.");
     }
   }
 
@@ -119,7 +163,7 @@ export default function HomePage() {
 
           {captionSource === "auto" ? (
             <>
-              <Field label="Language" hint={language === "hi" || language === "hi-hinglish" ? "Set to Hindi or Hinglish for better accuracy. Hinglish = Hindi in Roman script (e.g. 'kya hai')." : "For Whisper: auto-detect, English, Hindi, or Hinglish."}>
+              <Field label="Language" hint={language === "hi" ? "Set to Hindi for better word accuracy. Use model Medium or Large for Hindi." : "Auto-detect, English, or Hindi."}>
                 <select value={language} onChange={(e) => setLanguage(e.target.value)}>
                   {LANGUAGES.map((l) => (
                     <option key={l.id} value={l.id}>
@@ -128,7 +172,7 @@ export default function HomePage() {
                   ))}
                 </select>
               </Field>
-              <Field label="Whisper model" hint={language === "hi" || language === "hi-hinglish" ? "For Hindi/Hinglish: use medium or large for better accuracy. Small can produce grammatical errors." : "small = fast & good; medium/large = slower, more accurate."}>
+              <Field label="Whisper model" hint={language === "hi" ? "For Hindi: use Medium or Large for better word accuracy. Small can have errors." : "Small = fast; Medium/Large = slower, more accurate."}>
                 <select value={whisperModel} onChange={(e) => setWhisperModel(e.target.value)}>
                   <option value="tiny">Tiny</option>
                   <option value="base">Base</option>
@@ -186,12 +230,42 @@ export default function HomePage() {
 
           {loading ? (
             <div className="loading">
-              {captionSource === "auto"
-                ? "Extracting audio, running Whisper, then burning captions. This may take a few minutes."
-                : "Burning captions into video."}
+              Processing… Check the status popup for progress.
             </div>
           ) : null}
         </form>
+
+        {showLogModal && (
+          <div className="logModal" role="dialog" aria-label="Status">
+            <div className="logModal__box">
+              <div className="logModal__header">
+                <h3 className="logModal__title">Status</h3>
+                <button
+                  type="button"
+                  className="logModal__close"
+                  onClick={() => setShowLogModal(false)}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="logModal__body">
+                {logs.length === 0 ? (
+                  <div className="logModal__empty">Processing…</div>
+                ) : (
+                  <ul className="logModal__list">
+                    {logs.map((entry, i) => (
+                      <li key={i} className="logModal__item">
+                        <span className="logModal__ts">{entry.ts ? new Date(entry.ts).toLocaleTimeString() : ""}</span>
+                        <span className="logModal__msg">{entry.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="footerNote">
           Requires local <code>ffmpeg</code> and <code>whisper</code> (pip install openai-whisper). Works fully offline. No paid APIs.

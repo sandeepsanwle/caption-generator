@@ -17,3 +17,12 @@ export async function processVideo(formData) {
   return payload;
 }
 
+export async function getJobStatus(jobId) {
+  const res = await fetch(`/api/jobs/${jobId}`);
+  if (!res.ok) {
+    if (res.status === 404) return null;
+    throw new Error("Failed to fetch job status");
+  }
+  return res.json();
+}
+

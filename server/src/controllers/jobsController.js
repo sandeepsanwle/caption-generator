@@ -6,13 +6,12 @@ const {
   extractAudioFromVideo,
   burnCaptionsIntoVideo,
 } = require("../utils/ffmpegRunner");
-const { runWhisper, getExpectedSrtPath } = require("../utils/whisperRunner");
+const { transcribeViaService } = require("../utils/transcriptionServiceClient");
 const { buildForceStyle } = require("../utils/subtitleStyle");
 
 const { vttToSrt } = require("../utils/captionConverters/vttToSrt");
 const { jsonToSrt } = require("../utils/captionConverters/jsonToSrt");
 const { srtWordWrap } = require("../utils/captionConverters/srtWordWrap");
-const { srtDevanagariToHinglish } = require("../utils/captionConverters/devanagariToHinglish");
 
 function assertFileExists(p, label) {
   if (!p || !fs.existsSync(p)) {
@@ -28,9 +27,6 @@ function getOutputsDir() {
   return path.join(__dirname, "..", "..", "outputs");
 }
 
-/**
- * Optional cleanup of temp files (extracted audio) after successful job.
- */
 function cleanupTempFiles(paths) {
   for (const p of paths) {
     try {
@@ -39,12 +35,86 @@ function cleanupTempFiles(paths) {
   }
 }
 
+async function processJobInBackground(jobId, jobData) {
+  const {
+    captionSource,
+    videoPath,
+    captionsPath,
+    language,
+    whisperModel,
+    wordsPerLine,
+    preset,
+    fontSize,
+    color,
+    outline,
+    marginV,
+  } = jobData;
+  const uploadsDir = getUploadsDir();
+  const outputsDir = getOutputsDir();
+  const jobUploadDir = path.join(uploadsDir, jobId);
+  const extractedAudioPath = path.join(jobUploadDir, "extract.wav");
+  const generatedSrtPath = path.join(jobUploadDir, "captions.srt");
+  const outputVideoPath = path.join(outputsDir, `${jobId}.mp4`);
+  const forceStyle = buildForceStyle({ preset, fontSize, color, outline, marginV });
+
+  try {
+    assertFileExists(videoPath, "Video file");
+
+    if (captionSource === "auto") {
+      await extractAudioFromVideo(videoPath, extractedAudioPath);
+      assertFileExists(extractedAudioPath, "Extracted audio");
+      const wordsPerCue = Math.max(0, Math.min(10, Number(wordsPerLine) || 4));
+      const { srt } = await transcribeViaService(extractedAudioPath, {
+        model: whisperModel,
+        language,
+        wordsPerCue: wordsPerCue > 0 ? wordsPerCue : 4,
+      });
+      fs.writeFileSync(generatedSrtPath, srt, "utf8");
+    } else if (captionSource === "srt") {
+      if (!captionsPath) throw new Error("SRT file is required.");
+      const raw = fs.readFileSync(captionsPath, "utf8");
+      fs.writeFileSync(generatedSrtPath, raw.replace(/\r\n/g, "\n"), "utf8");
+    } else if (captionSource === "vtt") {
+      if (!captionsPath) throw new Error("VTT file is required.");
+      const raw = fs.readFileSync(captionsPath, "utf8");
+      const srt = vttToSrt(raw);
+      fs.writeFileSync(generatedSrtPath, srt, "utf8");
+    } else if (captionSource === "json") {
+      if (!captionsPath) throw new Error("JSON file is required.");
+      const raw = fs.readFileSync(captionsPath, "utf8");
+      const srt = jsonToSrt(raw);
+      fs.writeFileSync(generatedSrtPath, srt, "utf8");
+    }
+
+    assertFileExists(generatedSrtPath, "Captions SRT");
+
+    if (captionSource !== "auto") {
+      const wpl = Math.max(0, Math.min(10, Number(wordsPerLine) || 4));
+      if (wpl > 0) {
+        const raw = fs.readFileSync(generatedSrtPath, "utf8");
+        fs.writeFileSync(generatedSrtPath, srtWordWrap(raw, wpl), "utf8");
+      }
+    }
+
+    await burnCaptionsIntoVideo({
+      videoPath,
+      srtPath: generatedSrtPath,
+      outputPath: outputVideoPath,
+      forceStyle,
+    });
+
+    assertFileExists(outputVideoPath, "Output video");
+    await updateJob(jobId, { status: "completed", outputVideoPath, error: null });
+    cleanupTempFiles([extractedAudioPath]);
+  } catch (err) {
+    await updateJob(jobId, { status: "failed", error: err.message });
+  }
+}
+
 async function processJob(req, res) {
   const jobId = req.jobId;
   const captionSource = String(req.body.captionSource || "").toLowerCase();
   const language = String(req.body.language || "auto").toLowerCase().trim() || "auto";
-  const outputHinglish = language === "hi-hinglish";
-  const whisperLanguage = outputHinglish ? "hi" : language;
   const whisperModel = String(req.body.whisperModel || "small").toLowerCase();
 
   const videoFile = req.files?.video?.[0];
@@ -89,78 +159,23 @@ async function processJob(req, res) {
 
   await createJob(jobRecord);
 
-  try {
-    assertFileExists(videoFile.path, "Video file");
+  const jobData = {
+    captionSource,
+    videoPath: videoFile.path,
+    captionsPath: captionsFile?.path,
+    language,
+    whisperModel,
+    wordsPerLine: req.body.wordsPerLine,
+    preset,
+    fontSize,
+    color,
+    outline,
+    marginV,
+  };
 
-    // 1) Obtain SRT: auto (Whisper) or upload/convert
-    if (captionSource === "auto") {
-      // Extract audio from video, run Whisper, get SRT
-      await extractAudioFromVideo(videoFile.path, extractedAudioPath);
-      assertFileExists(extractedAudioPath, "Extracted audio");
+  res.json({ jobId, status: "processing" });
 
-      await runWhisper(extractedAudioPath, {
-        model: whisperModel,
-        language: whisperLanguage,
-        outputDir: jobUploadDir,
-      });
-
-      const whisperSrtPath = getExpectedSrtPath(extractedAudioPath);
-      assertFileExists(whisperSrtPath, "Whisper SRT");
-      fs.copyFileSync(whisperSrtPath, generatedSrtPath);
-    } else if (captionSource === "srt") {
-      if (!captionsFile) throw new Error("SRT file is required when captionSource=srt.");
-      const raw = fs.readFileSync(captionsFile.path, "utf8");
-      fs.writeFileSync(generatedSrtPath, raw.replace(/\r\n/g, "\n"), "utf8");
-    } else if (captionSource === "vtt") {
-      if (!captionsFile) throw new Error("VTT file is required when captionSource=vtt.");
-      const raw = fs.readFileSync(captionsFile.path, "utf8");
-      const srt = vttToSrt(raw);
-      fs.writeFileSync(generatedSrtPath, srt, "utf8");
-    } else if (captionSource === "json") {
-      if (!captionsFile) throw new Error("JSON file is required when captionSource=json.");
-      const raw = fs.readFileSync(captionsFile.path, "utf8");
-      const srt = jsonToSrt(raw);
-      fs.writeFileSync(generatedSrtPath, srt, "utf8");
-    }
-
-    assertFileExists(generatedSrtPath, "Captions SRT");
-
-    // 1b) Convert Hindi (Devanagari) to Hinglish (Roman script) when requested
-    if (outputHinglish) {
-      const raw = fs.readFileSync(generatedSrtPath, "utf8");
-      fs.writeFileSync(generatedSrtPath, srtDevanagariToHinglish(raw), "utf8");
-    }
-
-    // 1c) Word-wrap SRT: max 3-4 words per cue for cleaner display
-    const wordsPerLine = Math.max(0, Math.min(10, Number(req.body.wordsPerLine) || 4));
-    if (wordsPerLine > 0) {
-      const raw = fs.readFileSync(generatedSrtPath, "utf8");
-      fs.writeFileSync(generatedSrtPath, srtWordWrap(raw, wordsPerLine), "utf8");
-    }
-
-    // 2) Burn captions into ORIGINAL video (no audio replacement)
-    await burnCaptionsIntoVideo({
-      videoPath: videoFile.path,
-      srtPath: generatedSrtPath,
-      outputPath: outputVideoPath,
-      forceStyle,
-    });
-
-    assertFileExists(outputVideoPath, "Output video");
-    await updateJob(jobId, { status: "completed", outputVideoPath, error: null });
-
-    // Optional: cleanup temp extracted audio
-    cleanupTempFiles([extractedAudioPath]);
-
-    return res.json({
-      jobId,
-      status: "completed",
-      downloadUrl: `/api/jobs/${jobId}/download`,
-    });
-  } catch (err) {
-    await updateJob(jobId, { status: "failed", error: err.message });
-    return res.status(500).json({ jobId, status: "failed", error: err.message });
-  }
+  processJobInBackground(jobId, jobData).catch(() => {});
 }
 
 async function getJobStatus(req, res) {

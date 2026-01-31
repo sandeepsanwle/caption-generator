@@ -1,6 +1,9 @@
 /client/.env
 /server/.env
 /whisper-env
+/python-service/__pycache__
+/python-service/.venv
+/python-service/venv
 /node_modules
 /client/node_modules
 /server/node_modules

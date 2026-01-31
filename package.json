@@ -8,9 +8,11 @@
   ],
   "scripts": {
     "start": "npm run dev",
-    "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev": "concurrently -n server,client,python -c blue,green,magenta \"npm run dev -w server\" \"npm run dev -w client\" \"cd python-service && uvicorn main:app --reload --host 127.0.0.1 --port 8000\"",
+    "dev:no-python": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client",
     "start:prod": "npm run build -w client && npm run start -w server",
+    "python:serve": "cd python-service && uvicorn main:app --host 127.0.0.1 --port 8000",
     "test": "echo \"No tests\" && exit 0"
   },
   "author": "",

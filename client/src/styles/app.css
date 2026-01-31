@@ -196,3 +196,93 @@ select {
   font-size: 12px;
 }
 
+/* Log modal */
+.logModal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 20px;
+}
+
+.logModal__box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.logModal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.logModal__title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.logModal__close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 8px;
+  line-height: 1;
+}
+
+.logModal__close:hover {
+  color: var(--text);
+}
+
+.logModal__body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 120px;
+}
+
+.logModal__empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.logModal__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.logModal__item {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.logModal__item:last-child {
+  border-bottom: none;
+}
+
+.logModal__ts {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.logModal__msg {
+  word-break: break-word;
+}
+

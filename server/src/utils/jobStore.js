@@ -13,11 +13,12 @@ function initJobStore({ dbReady }) {
 }
 
 async function createJob(job) {
+  const record = { ...job, createdAt: new Date(), updatedAt: new Date() };
   if (useDb) {
-    await Job.create(job);
-    return job;
+    await Job.create(record);
+    return record;
   }
-  mem.set(job.jobId, { ...job, createdAt: new Date(), updatedAt: new Date() });
+  mem.set(job.jobId, record);
   return mem.get(job.jobId);
 }
 

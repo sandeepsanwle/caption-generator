@@ -9,6 +9,7 @@ require("dotenv").config();
 
 const jobsRoutes = require("./routes/jobs");
 const { initJobStore } = require("./utils/jobStore");
+const { checkServiceHealth } = require("./utils/transcriptionServiceClient");
 
 const app = express();
 
@@ -18,8 +19,12 @@ app.use(morgan("dev"));
 // Note: multipart/form-data is handled by multer on the route.
 app.use(express.json({ limit: "2mb" }));
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
+app.get("/api/health", async (_req, res) => {
+  const transcriptionOk = await checkServiceHealth();
+  res.json({
+    ok: true,
+    transcriptionService: transcriptionOk ? "connected" : "disconnected",
+  });
 });
 
 app.use("/api", jobsRoutes);
