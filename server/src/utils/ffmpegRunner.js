@@ -1,4 +1,8 @@
+const fs = require("fs");
+const path = require("path");
 const { spawn } = require("child_process");
+const { buildAssStyleLine } = require("./subtitleStyle");
+const { srtToAss } = require("./captionConverters/srtToAss");
 
 function runCmd(bin, args, { logPrefix } = {}) {
   return new Promise((resolve, reject) => {
@@ -47,6 +51,30 @@ async function getAudioDurationSeconds(audioPath) {
   return duration;
 }
 
+/**
+ * Get video width and height via ffprobe (for subtitle original_size).
+ */
+async function getVideoDimensions(videoPath) {
+  const args = [
+    "-v",
+    "error",
+    "-select_streams",
+    "v:0",
+    "-show_entries",
+    "stream=width,height",
+    "-of",
+    "csv=p=0",
+    videoPath,
+  ];
+  const { stdout } = await runCmd("ffprobe", args, { logPrefix: "ffprobe" });
+  const line = String(stdout).trim().split("\n")[0];
+  const [w, h] = (line || "").split(",").map((n) => parseInt(n, 10));
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) {
+    throw new Error("Could not determine video dimensions via ffprobe.");
+  }
+  return { width: w, height: h };
+}
+
 function escapeForFfmpegFilterValue(value) {
   // We wrap in single quotes in the filter, so escape single quotes and backslashes.
   return String(value).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -59,6 +87,11 @@ function escapeForSubtitlesFilename(filePath) {
     .replace(/\\/g, "\\\\")
     .replace(/:/g, "\\:")
     .replace(/'/g, "\\'");
+}
+
+function escapeForAssFilter(filePath) {
+  // ass filter: escape backslashes and single quotes for -vf ass=path.
+  return String(filePath).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 /**
@@ -85,11 +118,25 @@ async function extractAudioFromVideo(videoPath, audioPath) {
 /**
  * Burn subtitles into the ORIGINAL video. Video and audio streams are preserved;
  * only the video stream gets the subtitle filter (no audio replacement).
+ * Converts SRT to ASS with center alignment (Alignment=5) baked in so captions
+ * appear in the center of the video both vertically and horizontally.
  */
-async function burnCaptionsIntoVideo({ videoPath, srtPath, outputPath, forceStyle }) {
-  const escapedSrt = escapeForSubtitlesFilename(srtPath);
-  const escapedStyle = escapeForFfmpegFilterValue(forceStyle);
-  const vf = `subtitles='${escapedSrt}':force_style='${escapedStyle}'`;
+async function burnCaptionsIntoVideo({
+  videoPath,
+  srtPath,
+  outputPath,
+  forceStyle,
+  styleParams = {},
+}) {
+  const { width, height } = await getVideoDimensions(videoPath);
+  const srtContent = fs.readFileSync(srtPath, "utf8");
+  const styleLineValues = buildAssStyleLine(styleParams);
+  const assContent = srtToAss(srtContent, styleLineValues, width, height);
+  const assPath = path.join(path.dirname(srtPath), "captions.ass");
+  fs.writeFileSync(assPath, assContent, "utf8");
+
+  const escapedAss = escapeForAssFilter(assPath);
+  const vf = `ass='${escapedAss}'`;
 
   const args = [
     "-y",
@@ -115,6 +162,7 @@ async function burnCaptionsIntoVideo({ videoPath, srtPath, outputPath, forceStyl
 
 module.exports = {
   getAudioDurationSeconds,
+  getVideoDimensions,
   extractAudioFromVideo,
   burnCaptionsIntoVideo,
 };

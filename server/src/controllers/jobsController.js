@@ -57,7 +57,8 @@ async function processJobInBackground(jobId, jobData) {
   const extractedAudioPath = path.join(jobUploadDir, "extract.wav");
   const generatedSrtPath = path.join(jobUploadDir, "captions.srt");
   const outputVideoPath = path.join(outputsDir, `${jobId}.mp4`);
-  const forceStyle = buildForceStyle({ preset, fontSize, color, outline, marginV });
+  const styleParams = { preset, fontSize, color, outline, marginV };
+  const forceStyle = buildForceStyle(styleParams);
 
   try {
     assertFileExists(videoPath, "Video file");
@@ -105,6 +106,7 @@ async function processJobInBackground(jobId, jobData) {
       srtPath: generatedSrtPath,
       outputPath: outputVideoPath,
       forceStyle,
+      styleParams,
     });
 
     assertFileExists(outputVideoPath, "Output video");

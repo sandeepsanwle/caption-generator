@@ -41,7 +41,7 @@ function coerceNumber(v, fallback) {
 
 /**
  * Builds a force_style string for FFmpeg libass subtitles filter.
- * Note: "Alignment=2" is bottom-center in ASS.
+ * Captions are centered (Alignment=5).
  */
 function buildForceStyle({
   preset = "default",
@@ -54,12 +54,10 @@ function buildForceStyle({
 
   const fs = Math.max(10, Math.min(96, coerceNumber(fontSize, p.fontSize)));
   const out = Math.max(0, Math.min(10, coerceNumber(outline, p.outline)));
-  const mv = Math.max(0, Math.min(200, coerceNumber(marginV, 30)));
+  const mv = Math.max(0, Math.min(200, coerceNumber(marginV, 0)));
   const primary = hexToAssColor(color || p.color);
   const outlineColor = hexToAssColor("#000000");
 
-  // ASS style: https://aegisub.org/docs/latest/ass_tags/
-  // BorderStyle=1 is outline + drop shadow.
   return [
     "Fontname=Arial",
     `Fontsize=${fs}`,
@@ -68,10 +66,58 @@ function buildForceStyle({
     "BorderStyle=1",
     `Outline=${out}`,
     "Shadow=0",
-    "Alignment=2",
+    "Alignment=5",
+    "MarginL=0",
+    "MarginR=0",
     `MarginV=${mv}`,
   ].join(",");
 }
 
-module.exports = { buildForceStyle, STYLE_PRESETS };
+/**
+ * Builds the full ASS [V4+ Styles] "Style: Default,..." line for use in an ASS file.
+ * Captions are centered (Alignment=5).
+ */
+function buildAssStyleLine({
+  preset = "default",
+  fontSize,
+  color,
+  outline,
+  marginV,
+} = {}) {
+  const p = STYLE_PRESETS[preset] || STYLE_PRESETS.default;
+  const fs = Math.max(10, Math.min(96, coerceNumber(fontSize, p.fontSize)));
+  const out = Math.max(0, Math.min(10, coerceNumber(outline, p.outline)));
+  const mv = Math.max(0, Math.min(200, coerceNumber(marginV, 0)));
+  const primary = hexToAssColor(color || p.color);
+  const outlineColor = hexToAssColor("#000000");
+  const secondary = "&H000000FF&";
+  const back = "&H64000000&";
+  return [
+    "Default",
+    "Arial",
+    String(fs),
+    primary,
+    secondary,
+    outlineColor,
+    back,
+    "0",
+    "0",
+    "0",
+    "0",
+    "100",
+    "100",
+    "0",
+    "0",
+    "1",
+    String(out),
+    "0",
+    "5",
+    "0",
+    "0",
+    String(mv),
+    "1",
+  ].join(",");
+}
+
+module.exports = { buildForceStyle, buildAssStyleLine, STYLE_PRESETS };
 

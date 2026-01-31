@@ -230,7 +230,7 @@ export default function HomePage() {
               onChange={(e) => setWordsPerLine(e.target.value)}
             />
           </Field>
-          <Field label="Subtitle styling" hint="Font size, color, outline; bottom-center alignment.">
+          <Field label="Subtitle styling" hint="Font size, color, outline. Captions are centered.">
             <StyleOptions
               preset={preset}
               setPreset={setPreset}
