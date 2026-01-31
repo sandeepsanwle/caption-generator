@@ -29,6 +29,7 @@ export default function HomePage() {
   const [captionsFile, setCaptionsFile] = useState(null);
   const [language, setLanguage] = useState("auto");
   const [whisperModel, setWhisperModel] = useState("small");
+  const [correctedCaptions, setCorrectedCaptions] = useState("");
 
   const [preset, setPreset] = useState("default");
   const [fontSize, setFontSize] = useState("28");
@@ -86,6 +87,9 @@ export default function HomePage() {
 
     if (captionSource !== "auto") {
       fd.append("captionsFile", captionsFile);
+    }
+    if (captionSource === "auto" && correctedCaptions.trim()) {
+      fd.append("correctedCaptions", correctedCaptions.trim());
     }
 
     try {
@@ -180,6 +184,15 @@ export default function HomePage() {
                   <option value="medium">Medium</option>
                   <option value="large">Large</option>
                 </select>
+              </Field>
+              <Field label="Corrected captions (optional)" hint="Paste corrected Hindi (or other) script; Whisper provides word-level timing and your text replaces Whisper's words. Leave empty to use Whisper text as-is.">
+                <textarea
+                  className="textarea"
+                  rows={4}
+                  placeholder="e.g. नमस्ते दुनिया ..."
+                  value={correctedCaptions}
+                  onChange={(e) => setCorrectedCaptions(e.target.value)}
+                />
               </Field>
             </>
           ) : (

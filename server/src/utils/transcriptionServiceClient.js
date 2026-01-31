@@ -12,14 +12,15 @@ function getServiceUrl() {
 /**
  * Call Python transcription service with audio file.
  * @param {string} audioPath - Path to WAV/MP3 file
- * @param {object} options - { model, language, wordsPerCue }
- * @returns {Promise<string>} - SRT content
+ * @param {object} options - { model, language, wordsPerCue, correctedText }
+ * @returns {Promise<{ srt: string }>} - SRT content
  */
 async function transcribeViaService(audioPath, options = {}) {
   const url = `${getServiceUrl()}/transcribe`;
   const model = String(options.model || "small").toLowerCase();
   const language = String(options.language || "auto").trim() || "auto";
   const wordsPerCue = Math.max(0, Math.min(10, Number(options.wordsPerCue) || 4));
+  const correctedText = options.correctedText ? String(options.correctedText).trim() : "";
 
   const formData = new FormData();
   const fileBuffer = fs.readFileSync(audioPath);
@@ -29,6 +30,7 @@ async function transcribeViaService(audioPath, options = {}) {
   formData.append("model", model);
   formData.append("language", language);
   formData.append("words_per_cue", String(wordsPerCue));
+  if (correctedText) formData.append("corrected_text", correctedText);
 
   const res = await fetch(url, {
     method: "POST",

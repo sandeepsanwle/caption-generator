@@ -43,6 +43,7 @@ async function processJobInBackground(jobId, jobData) {
     language,
     whisperModel,
     wordsPerLine,
+    correctedCaptions,
     preset,
     fontSize,
     color,
@@ -68,6 +69,7 @@ async function processJobInBackground(jobId, jobData) {
         model: whisperModel,
         language,
         wordsPerCue: wordsPerCue > 0 ? wordsPerCue : 4,
+        correctedText: correctedCaptions || undefined,
       });
       fs.writeFileSync(generatedSrtPath, srt, "utf8");
     } else if (captionSource === "srt") {
@@ -166,6 +168,7 @@ async function processJob(req, res) {
     language,
     whisperModel,
     wordsPerLine: req.body.wordsPerLine,
+    correctedCaptions: req.body.correctedCaptions ? String(req.body.correctedCaptions).trim() : undefined,
     preset,
     fontSize,
     color,

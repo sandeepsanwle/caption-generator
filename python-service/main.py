@@ -37,15 +37,15 @@ async def transcribe(
     model: str = Form("small"),
     language: str = Form("auto"),
     words_per_cue: int = Form(4),
+    corrected_text: str = Form(""),
 ):
-    """
-    Transcribe audio with Whisper, return SRT with 3-4 word captions.
-    """
+    """Transcribe audio with Whisper. If corrected_text is set, use Whisper only for timing and replace with corrected words."""
     if model not in TRANSCRIBE_MODELS:
         raise HTTPException(400, f"Invalid model. Use: {', '.join(sorted(TRANSCRIBE_MODELS))}")
 
     words_per_cue = max(1, min(10, words_per_cue))
     lang = (language or "auto").strip().lower() or "auto"
+    corrected = (corrected_text or "").strip() or None
 
     suffix = ".wav" if audio.filename and audio.filename.lower().endswith(".wav") else ".mp3"
     try:
@@ -60,6 +60,7 @@ async def transcribe(
                 model=model,
                 language=lang if lang != "auto" else None,
                 words_per_cue=words_per_cue,
+                corrected_text=corrected,
             )
             return {"srt": srt, "language": language}
         finally:
