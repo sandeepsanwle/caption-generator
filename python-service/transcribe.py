@@ -14,6 +14,70 @@ try:
 except ImportError:
     STABLE_WHISPER_AVAILABLE = False
 
+try:
+    from indic_transliteration import sanscript
+    from indic_transliteration.sanscript import transliterate as indic_transliterate
+    INDIC_TRANSLITERATION_AVAILABLE = True
+except ImportError:
+    INDIC_TRANSLITERATION_AVAILABLE = False
+
+# Devanagari Unicode range (blocks for Hindi/Sanskrit)
+_DEVANAGARI_RE = re.compile(r"[\u0900-\u097F]")
+
+# ITRANS retroflex notation: .D = ड, .T = ट, etc. Remove dot for cleaner Hinglish (e.g. sa.daka -> sadaka)
+_ITRANS_RETROFLEX_DOT = re.compile(r"\.([a-zA-Z])")
+
+
+def _text_to_hinglish(text: str) -> str:
+    """Convert Devanagari text to Roman (Hinglish) using ITRANS. Lowercase, cleaner spellings. Leaves non-Devanagari unchanged."""
+    if not text or not INDIC_TRANSLITERATION_AVAILABLE:
+        return text
+    if not _DEVANAGARI_RE.search(text):
+        return text
+    try:
+        roman = indic_transliterate(text, sanscript.DEVANAGARI, sanscript.ITRANS)
+        # All lowercase for consistent Hinglish
+        roman = roman.lower()
+        # Remove ITRANS retroflex dot notation for more natural Hinglish (sa.daka -> sadaka)
+        roman = _ITRANS_RETROFLEX_DOT.sub(r"\1", roman)
+        return roman
+    except Exception:
+        return text
+
+
+def _srt_caption_text_to_lower(srt_content: str) -> str:
+    """Lowercase only the caption text (third line onwards) in each SRT block. Index and timestamps unchanged."""
+    if not srt_content:
+        return srt_content
+    blocks = [b.strip() for b in srt_content.strip().split("\n\n") if b.strip()]
+    out = []
+    for block in blocks:
+        lines = block.split("\n")
+        if len(lines) >= 3:
+            # lines[0]=index, lines[1]=timestamps, lines[2:]=text
+            text = " ".join(lines[2:]).strip().lower()
+            out.append("\n".join([lines[0], lines[1], text]))
+        else:
+            out.append(block)
+    return "\n\n".join(out) + ("\n" if out else "")
+
+
+def _srt_to_hinglish(srt_content: str) -> str:
+    """Convert SRT caption text lines from Devanagari to Hinglish (Roman). Lowercase, natural spellings. Keeps index and timestamps unchanged."""
+    if not srt_content or not INDIC_TRANSLITERATION_AVAILABLE:
+        return srt_content
+    blocks = [b.strip() for b in srt_content.strip().split("\n\n") if b.strip()]
+    out = []
+    for block in blocks:
+        lines = block.split("\n")
+        if len(lines) >= 3:
+            # lines[0]=index, lines[1]=timestamps, lines[2:]=text
+            text_lines = [lines[0], lines[1]] + [_text_to_hinglish(" ".join(lines[2:]).strip())]
+            out.append("\n".join(text_lines))
+        else:
+            out.append(block)
+    return "\n\n".join(out) + ("\n" if out else "")
+
 
 def parse_srt_timestamp(ts: str) -> float:
     """Parse SRT timestamp (HH:MM:SS,mmm) to seconds."""
@@ -433,11 +497,13 @@ def transcribe_audio(
     language: str | None = "auto",
     words_per_cue: int = 4,
     corrected_text: str | None = None,
+    output_script: str | None = None,
 ) -> str:
     """
     Run Whisper on audio, return SRT with 3-4 word cues (full audio).
     Prefers stable-ts for better word-level sync when available.
     If corrected_text is provided, timing is used and corrected words replace transcript text.
+    If output_script == "hinglish", Devanagari caption text is transliterated to Roman (Hinglish).
     """
     lang = None if (not language or language == "auto") else language
     # Prefer stable-ts for better word-level sync and full transcription
@@ -450,11 +516,16 @@ def transcribe_audio(
             corrected_text=corrected_text,
         )
         if srt and srt.strip():
-            return srt
-    return _transcribe_openai_whisper(
+            if (output_script or "").strip().lower() == "hinglish":
+                srt = _srt_to_hinglish(srt)
+            return _srt_caption_text_to_lower(srt)
+    srt = _transcribe_openai_whisper(
         audio_path,
         model=model,
         language=lang,
         words_per_cue=words_per_cue,
         corrected_text=corrected_text,
     )
+    if (output_script or "").strip().lower() == "hinglish":
+        srt = _srt_to_hinglish(srt)
+    return _srt_caption_text_to_lower(srt)

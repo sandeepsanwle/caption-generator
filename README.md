@@ -75,6 +75,7 @@ You can set:
 - **Caption source**: Auto (Whisper) or upload SRT / VTT / JSON.
 - **Language**: Auto-detect, English, or Hindi. For Hindi, use model **Medium** or **Large** for better accuracy.
 - **Whisper model**: Tiny / Base / Small / Medium / Large. Larger = slower but more accurate.
+- **Caption script**: **Hindi (Devanagari)** = captions in हिंदी script. **Hinglish (Roman)** = captions in Roman script (e.g. aap sadak par).
 - **Corrected captions (optional)**: When using Auto (Whisper), you can paste corrected script (e.g. corrected Hindi). Whisper is used only for word-level timestamps; your text is aligned to those timings and replaces Whisper’s text. Leave empty to use Whisper output as-is.
 - **Words at a time**: How many words per caption line (default 4).
 - **Subtitle styling**: Font size, color, outline.

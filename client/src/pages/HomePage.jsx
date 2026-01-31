@@ -16,6 +16,11 @@ const LANGUAGES = [
   { id: "hi", label: "Hindi" },
 ];
 
+const CAPTION_SCRIPTS = [
+  { id: "devanagari", label: "Hindi (Devanagari)" },
+  { id: "hinglish", label: "Hinglish (Roman)" },
+];
+
 function captionsAcceptFor(source) {
   if (source === "srt") return ".srt";
   if (source === "vtt") return ".vtt";
@@ -29,6 +34,7 @@ export default function HomePage() {
   const [captionsFile, setCaptionsFile] = useState(null);
   const [language, setLanguage] = useState("auto");
   const [whisperModel, setWhisperModel] = useState("small");
+  const [outputScript, setOutputScript] = useState("devanagari");
   const [correctedCaptions, setCorrectedCaptions] = useState("");
 
   const [preset, setPreset] = useState("default");
@@ -79,6 +85,7 @@ export default function HomePage() {
     fd.append("captionSource", captionSource);
     fd.append("language", language);
     fd.append("whisperModel", whisperModel);
+    fd.append("outputScript", outputScript);
     fd.append("preset", preset);
     fd.append("fontSize", String(fontSize));
     fd.append("color", String(color));
@@ -183,6 +190,15 @@ export default function HomePage() {
                   <option value="small">Small</option>
                   <option value="medium">Medium</option>
                   <option value="large">Large</option>
+                </select>
+              </Field>
+              <Field label="Caption script" hint="Devanagari = Hindi script (हिंदी). Hinglish = Roman script (aap sadak par).">
+                <select value={outputScript} onChange={(e) => setOutputScript(e.target.value)}>
+                  {CAPTION_SCRIPTS.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
                 </select>
               </Field>
               <Field label="Corrected captions (optional)" hint="Paste corrected Hindi (or other) script; Whisper provides word-level timing and your text replaces Whisper's words. Leave empty to use Whisper text as-is.">

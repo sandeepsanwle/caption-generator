@@ -44,6 +44,7 @@ async function processJobInBackground(jobId, jobData) {
     whisperModel,
     wordsPerLine,
     correctedCaptions,
+    outputScript,
     preset,
     fontSize,
     color,
@@ -70,6 +71,7 @@ async function processJobInBackground(jobId, jobData) {
         language,
         wordsPerCue: wordsPerCue > 0 ? wordsPerCue : 4,
         correctedText: correctedCaptions || undefined,
+        outputScript: outputScript || "devanagari",
       });
       fs.writeFileSync(generatedSrtPath, srt, "utf8");
     } else if (captionSource === "srt") {
@@ -169,6 +171,7 @@ async function processJob(req, res) {
     whisperModel,
     wordsPerLine: req.body.wordsPerLine,
     correctedCaptions: req.body.correctedCaptions ? String(req.body.correctedCaptions).trim() : undefined,
+    outputScript: req.body.outputScript ? String(req.body.outputScript).trim().toLowerCase() : "devanagari",
     preset,
     fontSize,
     color,
